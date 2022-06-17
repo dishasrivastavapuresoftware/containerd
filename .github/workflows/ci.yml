@@ -178,9 +178,7 @@ jobs:
               sudo chmod og+rx /usr/local/include/google /usr/local/include/google/protobuf /usr/local/include/google/protobuf/compiler && \
               sudo chmod -R og+r /usr/local/include/google/protobuf/ && \
               protoc --version && \
-              sudo apt-get install -y gperf && \
-              pwd && \
-              ls && \
-              git config --global --add safe.directory /ws && \
-              make test  && \
+              script/setup/install-dev-tools && \
+              make proto-fmt && \
+              make check-protos check-api-descriptors && \
               deactivate'
