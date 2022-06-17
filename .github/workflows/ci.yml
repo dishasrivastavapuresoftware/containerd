@@ -174,9 +174,5 @@ jobs:
               go version && \
               sudo apt-get install -y gperf && \
               pwd && \
-              make binaries GO_BUILD_FLAGS="-mod=vendor" && \
-              sudo -E PATH=$PATH make install && \
-              sudo -E PATH=$PATH script/setup/install-gotestsum && \
-              make test && /
-              sudo -E PATH=$PATH make root-test && \
+              make test && \
               deactivate'
