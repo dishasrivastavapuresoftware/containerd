@@ -127,7 +127,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        runtime: [io.containerd.runtime.v1.linux, io.containerd.runc.v1, io.containerd.runc.v2]
+        runtime: [io.containerd.runtime.v1.linux]
         runc: [runc, crun]
         exclude:
           - runtime: io.containerd.runc.v1
@@ -301,9 +301,6 @@ jobs:
               source ~/.profile
               go version
               sudo apt-get install -y gperf
-              sudo -E PATH=$PATH script/setup/install-seccomp
-              sudo -E PATH=$PATH script/setup/install-runc
-              sudo -E PATH=$PATH script/setup/install-cni $(grep containernetworking/plugins go.mod | awk {print $2})
-              sudo -E PATH=$PATH script/setup/install-critools
+             
               make
               make test'
