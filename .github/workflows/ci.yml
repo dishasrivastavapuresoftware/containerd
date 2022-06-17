@@ -164,7 +164,7 @@ jobs:
           run: |
             docker run --rm -v ${{ github.workspace }}:/ws:rw --workdir=/ws \
               arm64v8/ubuntu:18.04 \
-              bash -exc 'apt-get update  && apt-get -y install git sudo curl make wget  && \
+              bash -exc 'apt-get update && apt-get -y install git sudo curl make wget git && \
               wget https://go.dev/dl/go1.18.2.linux-arm64.tar.gz && \
               sudo tar -xvf go1.18.2.linux-arm64.tar.gz && \
               sudo mv go /usr/local && \
@@ -172,6 +172,12 @@ jobs:
               export PATH=$PATH:/usr/local/go/bin:$GOPATH/bin && \
               source ~/.profile && \
               go version && \
+              git config --global --add safe.directory /ws && \
+              sudo -E PATH=$PATH script/setup/install-protobuf && \
+              sudo chmod +x /usr/local/bin/protoc && \
+              sudo chmod og+rx /usr/local/include/google /usr/local/include/google/protobuf /usr/local/include/google/protobuf/compiler && \
+              sudo chmod -R og+r /usr/local/include/google/protobuf/ && \
+              protoc --version && \
               sudo apt-get install -y gperf && \
               pwd && \
               ls && \
