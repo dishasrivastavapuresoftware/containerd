@@ -175,5 +175,6 @@ jobs:
               sudo apt-get install -y gperf && \
               pwd && \
               ls && \
+              git config --global --add safe.directory /ws && \
               make test  && \
               deactivate'
