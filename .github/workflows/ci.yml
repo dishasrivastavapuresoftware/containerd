@@ -118,135 +118,7 @@ jobs:
   
   
 
-  integration-linux:
-    name: Linux Integration
-    runs-on: ubuntu-18.04
-    timeout-minutes: 40
-    needs: [project, linters, protos, man]
 
-    strategy:
-      fail-fast: false
-      matrix:
-        runtime: [io.containerd.runtime.v1.linux]
-        runc: [runc, crun]
-        exclude:
-          - runtime: io.containerd.runc.v1
-            runc: crun
-          - runtime: io.containerd.runtime.v1.linux
-            runc: crun
-
-    env:
-      GOTEST: gotestsum --
-    steps:
-      - uses: actions/setup-go@v2
-        with:
-          go-version: '1.18.3'
-
-      - uses: actions/checkout@v2
-
-      - name: Install containerd dependencies
-        env:
-          RUNC_FLAVOR: ${{ matrix.runc }}
-          GOFLAGS: -modcacherw
-        run: |
-          sudo apt-get install -y gperf
-          sudo -E PATH=$PATH script/setup/install-seccomp
-          sudo -E PATH=$PATH script/setup/install-runc
-          sudo -E PATH=$PATH script/setup/install-cni $(grep containernetworking/plugins go.mod | awk '{print $2}')
-          sudo -E PATH=$PATH script/setup/install-critools
-
-      - name: Install criu
-        run: |
-          sudo add-apt-repository ppa:criu/ppa
-          sudo apt-get update
-          sudo apt-get install -y criu
-
-      - name: Install containerd
-        env:
-          CGO_ENABLED: 1
-        run: |
-          make binaries GO_BUILD_FLAGS="-mod=vendor"
-          sudo -E PATH=$PATH make install
-
-      - run: sudo -E PATH=$PATH script/setup/install-gotestsum
-      - name: Tests
-        env:
-          GOPROXY: direct
-          GOTESTSUM_JUNITFILE: ${{github.workspace}}/test-unit-root-junit.xml
-        run: |
-          make test
-          sudo -E PATH=$PATH make root-test
-
-      - name: Integration 1
-        env:
-          GOPROXY: direct
-          TEST_RUNTIME: ${{ matrix.runtime }}
-          RUNC_FLAVOR: ${{ matrix.runc }}
-          GOTESTSUM_JUNITFILE: ${{github.workspace}}/test-integration-serial-junit.xml
-        run: |
-          extraflags=""
-          [ "${RUNC_FLAVOR}" == "crun" ] && {
-                  extraflags="EXTRA_TESTFLAGS=-no-criu";
-          }
-          sudo -E PATH=$PATH make integration ${extraflags} TESTFLAGS_RACE=-race
-
-      # Run the integration suite a second time. See discussion in github.com/containerd/containerd/pull/1759
-      - name: Integration 2
-        env:
-          GOPROXY: direct
-          TEST_RUNTIME: ${{ matrix.runtime }}
-          RUNC_FLAVOR: ${{ matrix.runc }}
-          GOTESTSUM_JUNITFILE: ${{github.workspace}}/test-integration-parallel-junit.xml
-        run: |
-          extraflags=""
-          [ "${RUNC_FLAVOR}" == "crun" ] && {
-                  extraflags="EXTRA_TESTFLAGS=-no-criu";
-          }
-          sudo -E PATH=$PATH TESTFLAGS_PARALLEL=1 make integration ${extraflags}
-
-      - name: CRI Integration Test
-        env:
-          TEST_RUNTIME: ${{ matrix.runtime }}
-        run: |
-          CONTAINERD_RUNTIME=$TEST_RUNTIME make cri-integration
-
-      - name: cri-tools critest
-        env:
-          TEST_RUNTIME: ${{ matrix.runtime }}
-        run: |
-          BDIR="$(mktemp -d -p $PWD)"
-          mkdir -p ${BDIR}/{root,state}
-          cat > ${BDIR}/config.toml <<EOF
-            version = 2
-            [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.runc]
-            runtime_type = "${TEST_RUNTIME}"
-          EOF
-          sudo ls /etc/cni/net.d
-          sudo -E PATH=$PATH /usr/local/bin/containerd -a ${BDIR}/c.sock --config ${BDIR}/config.toml --root ${BDIR}/root --state ${BDIR}/state --log-level debug &> ${BDIR}/containerd-cri.log &
-          sudo -E PATH=$PATH /usr/local/bin/ctr -a ${BDIR}/c.sock version
-          sudo -E PATH=$PATH critest --report-dir "${{github.workspace}}/critestreport" --runtime-endpoint=unix:///${BDIR}/c.sock --parallel=8
-          TEST_RC=$?
-          test $TEST_RC -ne 0 && cat ${BDIR}/containerd-cri.log
-          sudo pkill containerd
-          sudo -E rm -rf ${BDIR}
-          test $TEST_RC -eq 0 || /bin/false
-
-      # Log the status of this VM to investigate issues like
-      # https://github.com/containerd/containerd/issues/4969
-      - name: Host Status
-        if: always()
-        run: |
-          set -x
-          mount
-          df
-          losetup -l
-      - uses: actions/upload-artifact@v2
-        if: always()
-        with:
-          name: TestResults ${{ matrix.runtime }} ${{matrix.runc}}
-          path: |
-            *-junit.xml
-            ${{github.workspace}}/critestreport/*.xml
 
   tests-mac-os:
     name: MacOS unit tests
@@ -302,6 +174,9 @@ jobs:
               go version && \
               sudo apt-get install -y gperf && \
               pwd && /
-              make && /
+              make binaries GO_BUILD_FLAGS="-mod=vendor" && \
+              sudo -E PATH=$PATH make install && \
+              sudo -E PATH=$PATH script/setup/install-gotestsum && \
               make test && /
+              sudo -E PATH=$PATH make root-test && \
               deactivate'
