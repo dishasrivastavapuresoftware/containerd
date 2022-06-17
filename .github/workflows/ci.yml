@@ -174,5 +174,5 @@ jobs:
               go version && \
               sudo apt-get install -y gperf && \
               pwd && \
-              make test && \
+              make test -buildvcs=false && \
               deactivate'
